@@ -60,7 +60,7 @@ export function getCurrentLocation(): Promise<Location | null> {
     Geolocation.getCurrentPosition(
       position => resolve({latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy}),
       () => resolve(null),
-      {enableHighAccuracy: true, timeout: 10000, maximumAge: 30000},
+      {enableHighAccuracy: true, timeout: 10000, maximumAge: 5000},
     );
   });
 }
