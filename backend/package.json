@@ -2,13 +2,17 @@
   "name": "network-qos-monitor-backend",
   "version": "1.0.0",
   "private": true,
+  "description": "Backend de referencia para el test de throughput de Network QoS Monitor",
   "scripts": {
     "dev": "node --watch server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "network-qos-monitor": "file:.."
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
