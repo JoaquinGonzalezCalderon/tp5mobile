@@ -109,8 +109,12 @@ export const useQoSStore = create<QoSState>((set, get) => ({
 
   setFilter: async patch => {
     let next = {...get().filter, ...patch};
-    if (patch.radiusMeters && !next.center) next = {...next, center: await getCurrentLocation()};
+    // El chip se marca al instante; la consulta espera la ubicación solo si hace falta.
     set({filter: next});
+    if (patch.radiusMeters && !next.center) {
+      next = {...next, center: await getCurrentLocation()};
+      set({filter: next});
+    }
     set({filtered: await queryMeasurements(next)});
   },
 

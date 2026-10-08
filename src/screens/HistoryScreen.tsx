@@ -32,7 +32,7 @@ export function HistoryScreen() {
       <ChipRow>
         {ZONES.map(([radius, label]) => <Chip key={label} label={label} active={filter.radiusMeters === radius} onPress={() => setFilter({radiusMeters: radius, center: null})} />)}
       </ChipRow>
-      {filter.radiusMeters !== null && !filter.center && <Text style={{fontSize: 11, color: colors.red}}>No se pudo obtener tu ubicación para filtrar por zona.</Text>}
+      {filter.radiusMeters !== null && !filter.center && <Text style={{fontSize: 11, color: colors.muted}}>Obteniendo tu ubicación para filtrar por zona…</Text>}
     </View>
     <FlatList
       data={filtered}
