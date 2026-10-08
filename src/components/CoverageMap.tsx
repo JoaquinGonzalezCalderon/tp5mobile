@@ -115,7 +115,8 @@ window.render = function (data) {
     heatLayers.push(L.heatLayer(groups[key], {radius: 34, blur: 26, maxZoom: 0, max: 1, minOpacity: 0.05, gradient: gradient}).addTo(map));
   });
   if (data.showMarkers) pts.forEach(function (p) {
-    L.circleMarker([p.lat, p.lng], {radius: 5, color: '#fff', weight: 1.5, fillColor: colors[bucket(p.score)], fillOpacity: 1}).bindPopup(p.label).addTo(markers);
+    var html = '<div style="width:12px;height:12px;border-radius:7px;background:' + colors[bucket(p.score)] + ';border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45)"></div>';
+    L.marker([p.lat, p.lng], {icon: L.divIcon({html: html, className: '', iconSize: [16, 16], iconAnchor: [8, 8]})}).bindPopup(p.label).addTo(markers);
   });
   /* Reencuadra solo cuando cambia el conjunto de puntos (no al cambiar de modo). */
   if (data.fitKey !== lastFitKey) {
