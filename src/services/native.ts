@@ -23,7 +23,20 @@ export async function requestPermissions(): Promise<void> {
       PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
       PermissionsAndroid.PERMISSIONS.READ_PHONE_STATE,
     ].filter((item): item is NonNullable<typeof item> => Boolean(item));
-    await PermissionsAndroid.requestMultiple(wanted);
+    const granted = await PermissionsAndroid.requestMultiple(wanted);
+    // Android 10+: la ubicación en segundo plano se pide aparte y después de la de primer plano.
+    // Sin ella, las mediciones en background se guardan igual pero sin coordenadas.
+    const background = PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION;
+    if (background && Number(Platform.Version) >= 29 && granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION as keyof typeof granted] === 'granted') {
+      const has = await PermissionsAndroid.check(background);
+      if (!has) {
+        await PermissionsAndroid.request(background, {
+          title: 'Ubicación en segundo plano',
+          message: 'Para georreferenciar las mediciones automáticas elegí "Permitir todo el tiempo".',
+          buttonPositive: 'Continuar',
+        });
+      }
+    }
   } else {
     Geolocation.requestAuthorization();
   }
