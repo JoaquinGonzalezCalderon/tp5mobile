@@ -3,7 +3,14 @@ import {Settings} from '../types';
 import {measureAndStore} from './monitor';
 import {loadSettings} from './storage';
 
+// BackgroundFetch.configure suma un listener por llamada (y se llama de nuevo al guardar Ajustes):
+// se ignoran los eventos repetidos para no medir ni notificar dos veces por el mismo disparo.
+const handledTasks = new Set<string>();
+
 async function backgroundSample(taskId: string): Promise<void> {
+  const eventKey = `${taskId}-${Math.floor(Date.now() / 60000)}`;
+  if (handledTasks.has(eventKey)) return;
+  handledTasks.add(eventKey);
   try {
     const settings = await loadSettings();
     if (settings.backgroundEnabled) await measureAndStore(settings, 'background');
