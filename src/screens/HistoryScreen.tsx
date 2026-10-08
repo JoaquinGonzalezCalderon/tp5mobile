@@ -1,21 +1,68 @@
-import React, {useMemo, useState} from 'react';
-import {FlatList, Text, TextInput, View} from 'react-native';
-import {Measurement} from '../types';
+import React, {useEffect} from 'react';
+import {FlatList, Text, View} from 'react-native';
 import {colors, styles} from '../theme';
+import {useQoSStore} from '../store/useQoSStore';
+import {Chip, ChipRow, QualityBadge} from '../components/ui';
+import {aggregateProbes, networkLabel} from '../services/stats';
+import {DatePreset, NetworkType} from '../types';
 
-export function HistoryScreen({measurements}: {measurements: Measurement[]}) {
-  const [filter, setFilter] = useState('');
-  const filtered = useMemo(() => measurements.filter(item => `${item.network.type} ${item.network.carrier ?? ''} ${item.quality}`.toLowerCase().includes(filter.toLowerCase())), [filter, measurements]);
+const NETWORKS: Array<[NetworkType, string]> = [['wifi', 'Wi-Fi'], ['cellular', 'Celular'], ['ethernet', 'Ethernet'], ['none', 'Sin red']];
+const DATES: Array<[DatePreset, string]> = [['all', 'Todo'], ['today', 'Hoy'], ['7d', '7 días'], ['30d', '30 días']];
+const ZONES: Array<[number | null, string]> = [[null, 'Cualquier zona'], [500, '≤ 500 m'], [2000, '≤ 2 km'], [10000, '≤ 10 km']];
+
+export function HistoryScreen() {
+  const {filter, filtered, measurements, sessions, setFilter} = useQoSStore();
+  useEffect(() => {
+    setFilter({});
+  }, [measurements.length, setFilter]);
+  const toggleNetwork = (type: NetworkType) => setFilter({networkTypes: filter.networkTypes.includes(type) ? filter.networkTypes.filter(item => item !== type) : [...filter.networkTypes, type]});
+  const sessionName = (id: string) => sessions.find(item => item.id === id)?.name ?? '';
+
   return <View style={styles.screen}>
     <Text style={[styles.title, {marginTop: 18}]}>Historial</Text>
-    <Text style={styles.subtitle}>{measurements.length} mediciones guardadas localmente</Text>
-    <TextInput value={filter} onChangeText={setFilter} placeholder="Filtrar por red o calidad" placeholderTextColor="#98A4B5" style={{backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14, paddingVertical: 12, marginVertical: 16, color: colors.ink}} />
-    <FlatList data={filtered} keyExtractor={item => item.id} contentContainerStyle={{paddingBottom: 30}} ListEmptyComponent={<Text style={{color: colors.muted, textAlign: 'center', marginTop: 60}}>Aún no hay mediciones. Ejecutá la primera desde Inicio.</Text>} renderItem={({item}) => <View style={[styles.card, {marginBottom: 10}]}>
-      <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-        <View><Text style={{fontWeight: '800', color: colors.ink}}>{item.network.type === 'cellular' ? item.network.generation ?? 'Celular' : item.network.type === 'wifi' ? 'Wi-Fi' : item.network.type}</Text><Text style={{fontSize: 12, color: colors.muted, marginTop: 4}}>{new Date(item.timestamp).toLocaleString()}</Text></View>
-        <Text style={{fontWeight: '800', color: item.quality === 'poor' ? colors.red : item.quality === 'fair' ? colors.amber : colors.green}}>{item.quality.toUpperCase()}</Text>
-      </View>
-      <View style={{flexDirection: 'row', gap: 22, marginTop: 14}}><Text style={{color: colors.muted}}>RTT <Text style={{fontWeight: '800', color: colors.ink}}>{Math.round(item.probes[0]?.avg ?? 0)} ms</Text></Text><Text style={{color: colors.muted}}>↓ <Text style={{fontWeight: '800', color: colors.ink}}>{item.throughput.download} Mbps</Text></Text><Text style={{color: colors.muted}}>↑ <Text style={{fontWeight: '800', color: colors.ink}}>{item.throughput.upload} Mbps</Text></Text></View>
-    </View>} />
+    <Text style={styles.subtitle}>{filtered.length} de {measurements.length} mediciones (SQLite local)</Text>
+    <View style={{gap: 8, marginTop: 14, marginBottom: 10}}>
+      <ChipRow>
+        <Chip label="Todas las redes" active={!filter.networkTypes.length} onPress={() => setFilter({networkTypes: []})} />
+        {NETWORKS.map(([type, label]) => <Chip key={type} label={label} active={filter.networkTypes.includes(type)} onPress={() => toggleNetwork(type)} />)}
+      </ChipRow>
+      <ChipRow>
+        {DATES.map(([preset, label]) => <Chip key={preset} label={label} active={filter.datePreset === preset} onPress={() => setFilter({datePreset: preset})} />)}
+      </ChipRow>
+      <ChipRow>
+        {ZONES.map(([radius, label]) => <Chip key={label} label={label} active={filter.radiusMeters === radius} onPress={() => setFilter({radiusMeters: radius, center: null})} />)}
+      </ChipRow>
+      {filter.radiusMeters !== null && !filter.center && <Text style={{fontSize: 11, color: colors.red}}>No se pudo obtener tu ubicación para filtrar por zona.</Text>}
+    </View>
+    <FlatList
+      data={filtered}
+      keyExtractor={item => item.id}
+      contentContainerStyle={{paddingBottom: 30}}
+      ListEmptyComponent={<Text style={{color: colors.muted, textAlign: 'center', marginTop: 50}}>No hay mediciones con estos filtros.</Text>}
+      renderItem={({item}) => {
+        const agg = aggregateProbes(item.probes);
+        return <View style={[styles.card, {marginBottom: 10, paddingVertical: 13}]}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+            <View style={{flex: 1}}>
+              <Text style={{fontWeight: '800', color: colors.ink}}>{networkLabel(item.network)}{item.network.carrier ? ` · ${item.network.carrier}` : ''}</Text>
+              <Text style={{fontSize: 11, color: colors.muted, marginTop: 3}}>{new Date(item.timestamp).toLocaleString()} · {sessionName(item.sessionId)}{item.trigger === 'background' ? ' · 2º plano' : ''}</Text>
+            </View>
+            <QualityBadge quality={item.quality} />
+          </View>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 11}}>
+            <Stat label="RTT" value={`${Math.round(agg.avg)} ms`} />
+            <Stat label="Jitter" value={`${Math.round(agg.jitter)} ms`} />
+            <Stat label="Pérd." value={`${Math.round(agg.loss)}%`} />
+            <Stat label="↓" value={`${item.throughput.download}`} />
+            <Stat label="↑" value={`${item.throughput.upload}`} />
+          </View>
+          <Text style={{fontSize: 10, color: colors.muted, marginTop: 8}}>{item.location ? `${item.location.latitude.toFixed(5)}, ${item.location.longitude.toFixed(5)} (±${Math.round(item.location.accuracy ?? 0)} m)` : 'Sin ubicación'}{item.network.rssi !== undefined ? ` · ${item.network.rssi} dBm` : ''}</Text>
+        </View>;
+      }}
+    />
   </View>;
+}
+
+function Stat({label, value}: {label: string; value: string}) {
+  return <Text style={{color: colors.muted, fontSize: 12}}>{label} <Text style={{fontWeight: '800', color: colors.ink}}>{value}</Text></Text>;
 }

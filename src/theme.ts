@@ -24,4 +24,5 @@ export const styles = StyleSheet.create({
   sectionTitle: {fontSize: 16, fontWeight: '800', color: colors.ink, marginBottom: 12},
   label: {fontSize: 12, fontWeight: '700', letterSpacing: 0.4, color: colors.muted, textTransform: 'uppercase'},
   value: {fontSize: 20, fontWeight: '800', color: colors.ink},
+  hint: {fontSize: 11, color: colors.muted, marginTop: 8, lineHeight: 15},
 });
